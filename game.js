@@ -4,9 +4,38 @@
   const $ = (id) => document.getElementById(id);
   const scene = $("scene"), world = $("world"), me = $("me");
 
+  // ---- camera: a small window held tight on the cat ----
+  const ZOOM = 2.6;
+  scene.style.cssText = "width:min(720px,calc(100% - 32px));margin:16px auto 0;border:1px solid var(--line);border-radius:14px";
+  world.style.transformOrigin = "0 0";
+  world.style.overflow = "visible";
+
+  // ---- the cat: an 8-bit orange tabby, one rect per pixel ----
+  const CAT = [
+    "..........O...O.",
+    "D.........OO.OO.",
+    "O.........ODODO.",
+    "O.........OOOOOO",
+    "D.........OKOOKO",
+    "O.ODODODOOOWWPWW",
+    "OOODODODOOOOWWW.",
+    ".OODODODOOOOO...",
+    "..OOOOOOOOOO....",
+    "..OWWWWWWOOO....",
+    "..O.O....O.O....",
+    "..W.W....W.W...."
+  ];
+  const INK = { O: "#e8913a", D: "#8f4a17", W: "#f7e9cf", K: "#1b1404", P: "#f2a0a8" }, U = 2.5;
+  let s = `<ellipse cx="0" cy="0" rx="19" ry="2.5" fill="#000" opacity=".3"/><g shape-rendering="crispEdges">`;
+  CAT.forEach((row, r) => [...row].forEach((ch, c) => {
+    if (INK[ch]) s += `<rect x="${(c - 8) * U}" y="${(r - 12) * U}" width="${U + 0.05}" height="${U + 0.05}" fill="${INK[ch]}"/>`;
+  }));
+  me.innerHTML = s + "</g>";
+
   // ---- scenery drawn by loop ----
-  let s = "";
+  s = `<rect x="-800" y="262" width="800" height="38" fill="#070d24"/><rect x="1600" y="262" width="800" height="38" fill="#070d24"/>`;
   for (let i = 0; i < 46; i++) s += `<circle cx="${(i * 197) % 1600}" cy="${8 + (i * 59) % 130}" r="${i % 5 ? 0.9 : 1.5}" opacity="${0.35 + (i % 4) * 0.15}"/>`;
+  for (let i = 0; i < 14; i++) s += `<circle cx="${-250 + (i * 83) % 410}" cy="${150 + (i * 37) % 90}" r="${i % 3 ? 0.5 : 0.8}" opacity="${0.4 + (i % 3) * 0.2}"/>`;
   $("stars").innerHTML = s;
   s = "";
   for (let i = 0; i < 3; i++) {
@@ -61,10 +90,9 @@
   const stage = () => Math.min(7, Math.floor(total() / 100));
 
   function place() {
-    const st = S[stage()], k = world.clientHeight / 300, w = scene.clientWidth, W = 1600 * k;
-    const tx = W <= w ? (w - W) / 2 : Math.max(w - W, Math.min(0, w / 2 - st[1] * k));
-    world.style.transform = `translateX(${tx}px)`;
-    me.style.transform = `translate(${st[1]}px,${stage() >= 5 ? 254 : 262}px)`;
+    const st = S[stage()], k = scene.clientHeight / 300 * ZOOM, gy = stage() >= 5 ? 254 : 262;
+    world.style.transform = `translate(${scene.clientWidth / 2 - st[1] * k}px,${scene.clientHeight * 0.86 - gy * k}px) scale(${ZOOM})`;
+    me.style.transform = `translate(${st[1]}px,${gy}px)`;
     $("stage").textContent = st[0];
     $("pts").textContent = total();
     [...$("track").children].forEach((li, i) => li.classList.toggle("on", i <= stage()));
