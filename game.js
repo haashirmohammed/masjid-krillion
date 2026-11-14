@@ -311,6 +311,7 @@
     $("q").textContent = p.q; $("hint").textContent = p.hint; $("fb").textContent = "";
     $("ans").value = ""; $("ans").disabled = $("submit").disabled = $("skip").disabled = false;
     show("result", false); show("move", false); show("play", true);
+    $("pts").parentElement.className = "box score";
     $("ans").focus();
     left = SECONDS * 10; $("time").style.transition = "none"; tick();
     clearInterval(timer); timer = setInterval(() => { left--; tick(); if (left <= 0) settle(null, "Time is up"); }, 100);
@@ -340,6 +341,7 @@
     const wind = still ? 0 : lvl === 100 ? 1300 : lvl === 85 ? 800 : 0;
     if (wind) windup(lvl, wind);
     setTimeout(() => {
+      $("pts").parentElement.className = `box score s${lvl}`; // tier shade: lighter green for common answers, emerald for Hajj
       const secs = place(false, lvl);
       setTimeout(() => {
         $("r-place").textContent = STAGE[stage()];
