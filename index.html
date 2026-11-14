@@ -37,7 +37,33 @@ body{color:var(--ink);font:16px/1.5 var(--body);overflow:hidden}
 .card > *{flex:none}
 h1{margin:0;font:400 18px/1.5 var(--display)}
 .card h2{margin:0;font:600 clamp(20px,4.6vw,24px)/1.25 var(--body);text-wrap:balance}
-#end h2{font:400 15px/1.6 var(--display)}
+#end h2{font:400 13px/1.6 var(--display)}
+/* End screen: summary and walk log side by side, same size, centered over the cat. */
+.mid.final{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:stretch;gap:16px;overflow-y:auto;pointer-events:auto}
+.mid.final > .endbox{flex:1 1 300px;width:auto;max-width:440px;max-height:none}
+.rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.rows li{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:15px;line-height:1.2}
+.rows .n{font:400 9px var(--display);color:var(--muted)}
+.rows small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.rows b{font:400 9px var(--display);padding:5px 6px;border-radius:6px;min-width:40px;text-align:center;background:var(--deep);color:var(--muted);border:1px solid var(--line)}
+.rows b.t10{background:var(--g1);color:var(--deep);border-color:var(--g1)}
+.rows b.t30{background:var(--g2);color:var(--deep);border-color:var(--g2)}
+.rows b.t60{background:var(--g3);color:var(--deep);border-color:var(--g3)}
+.rows b.t85{background:var(--g4);color:#fff;border-color:#3f8f6a}
+.rows b.t100{background:var(--g5);color:#fff;border-color:var(--lamp)}
+#log{justify-content:center}
+#chart{display:block;width:100%;height:auto}
+#chart text{font-family:var(--display)}
+#chart .lt{font-size:11px;fill:var(--ink);letter-spacing:2px}
+#chart .dim{fill:var(--muted)}
+#chart .lab{font-size:8.5px;fill:var(--muted)}
+@media (max-width:700px){.mid.final{height:auto;bottom:calc(16px + env(safe-area-inset-bottom,0px))}}
+#chart .grid{stroke:#2f6d50;stroke-dasharray:3 4}
+#chart .miss{fill:none;stroke:var(--muted);stroke-dasharray:3 3;animation:fadein .3s both}
+#chart .stem{animation:drop .7s ease-out both}
+#chart .mark{animation:fadein .3s both}
+@keyframes drop{to{stroke-dashoffset:0}}
+@keyframes fadein{from{opacity:0}}
 .card p,.result p{margin:0}
 .muted{color:var(--muted);font-size:14px}
 .tag{align-self:flex-start;font:400 9px/1.6 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--deep);background:var(--tile);border-radius:99px;padding:3px 10px}
@@ -107,7 +133,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
 th{color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
 td.n{font-variant-numeric:tabular-nums;color:var(--mint);font-weight:700;white-space:nowrap}
-@media (prefers-reduced-motion:reduce){#world,#me{transition:none}.result,.scene,.tw,.jets{animation:none!important}}
+@media (prefers-reduced-motion:reduce){#world,#me{transition:none}.result,.scene,.tw,.jets,#chart *{animation:none!important}#chart .stem{stroke-dashoffset:0!important}}
 </style>
 </head>
 <body>
@@ -128,10 +154,14 @@ td.n{font-variant-numeric:tabular-nums;color:var(--mint);font-weight:700;white-s
       <p class="muted" id="r-place"></p>
     </section>
 
-    <section class="box card" id="end" hidden>
+    <section class="box card endbox" id="end" hidden>
       <h2 id="verdict"></h2>
-      <p id="summary"></p>
-      <div class="res"><table><thead><tr><th>Prompt</th><th>You said</th><th>Pts</th><th>Hajj answers</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <p class="muted" id="summary"></p>
+      <ol class="rows" id="rows"></ol>
+    </section>
+
+    <section class="box card endbox" id="log" hidden>
+      <svg id="chart" viewBox="0 0 480 330" role="img" aria-label="Walk log: how rare each answer was"></svg>
     </section>
   </div>
 

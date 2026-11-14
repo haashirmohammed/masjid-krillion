@@ -391,6 +391,34 @@
   $("skip").addEventListener("click", () => settle(null, "Skipped"));
   $("next").addEventListener("click", () => { if (++pos < P.length) ask(); else finish(); });
 
+  // Walk log: one column per prompt, a stem dropping as deep as the answer was rare. Misses stay as dashed rings at 0.
+  function drawLog() {
+    const L = 46, R = 404, T = 56, B = 286, col = (R - L) / P.length, y = (v) => T + (v / 100) * (B - T);
+    const FILL = { 10: "#e6f7ec", 30: "#bfe9cf", 60: "#86d4a8", 85: "#1d5e40", 100: "#023d2b" };
+    const STEM = { 10: "#e6f7ec", 30: "#bfe9cf", 60: "#86d4a8", 85: "#4fa27a", 100: C.lamp };
+    const HEAD = ["X.....X", "XX...XX", "XXXXXXX", "XKXXXKX", "XXXPXXX", ".XXXXX."];
+    const head = (cx, cy, fill, dark) => {
+      const u = 2.4, rows = (ink, dx, dy, eyes) => HEAD.map((r, j) => [...r].map((ch, k) => ch === "." ? "" :
+        `<rect x="${cx + (k - 3.5) * u + dx}" y="${cy + (j - 3) * u + dy}" width="${u + 0.05}" height="${u + 0.05}" fill="${eyes && ch === "K" ? (dark ? "#e6f7ec" : "#07291c") : eyes && ch === "P" ? "#f2a0a8" : ink}"/>`).join("")).join("");
+      const outline = dark ? [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => rows("#86d4a8", dx, dy, false)).join("") : "";
+      return outline + rows(fill, 0, 0, true);
+    };
+    const star = (cx, cy) => `<rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" fill="${FILL[100]}" stroke="${C.lamp}" stroke-width="1.5"/>` +
+      `<rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" fill="${FILL[100]}" stroke="${C.lamp}" stroke-width="1.5" transform="rotate(45 ${cx} ${cy})"/><rect x="${cx - 1.5}" y="${cy - 1.5}" width="3" height="3" fill="${C.lamp}"/>`;
+    let s = `<text x="${L - 30}" y="24" class="lt">WALK LOG</text><text x="${L + 92}" y="24" class="lt dim">RARER = DEEPER</text><line x1="${L + 250}" y1="20" x2="${R}" y2="20" class="grid"/>`;
+    [0, 25, 50, 75, 100].forEach((v) => { s += `<line x1="${L}" y1="${y(v)}" x2="${R}" y2="${y(v)}" class="grid"/><text x="${L - 8}" y="${y(v) + 3}" class="lab" text-anchor="end">${v}</text>`; });
+    TIERS.forEach(([v, name]) => { s += `<text x="${R + 8}" y="${y(v) + 3}" class="lab" style="fill:${STEM[v]}">${name.toUpperCase()}</text>`; });
+    P.forEach((p, i) => {
+      const cx = L + col * (i + 0.5), v = scores[i], delay = `animation-delay:${0.2 + i * 0.14}s`;
+      s += `<text x="${cx}" y="${B + 26}" class="lab" text-anchor="middle">${i + 1}</text>`;
+      if (!v) { s += `<circle cx="${cx}" cy="${T}" r="7" class="miss" style="${delay}"/>`; return; }
+      const len = y(v) - T;
+      s += `<line x1="${cx}" y1="${T}" x2="${cx}" y2="${y(v)}" stroke="${STEM[v]}" stroke-width="1.5" class="stem" style="stroke-dasharray:${len};stroke-dashoffset:${len};${delay}"/>`;
+      s += `<g class="mark" style="animation-delay:${0.8 + i * 0.14}s">${v === 100 ? star(cx, y(v)) : head(cx, y(v), FILL[v], v === 85)}</g>`;
+    });
+    $("chart").innerHTML = s;
+  }
+
   // One attempt: the end screen has no way back in.
   function finish() {
     const t = total();
@@ -399,10 +427,13 @@
       : `${t} of 700 points. ${700 - t} more would have put you in the front row.`;
     $("rows").innerHTML = P.map((p, i) => {
       const top = p.a.filter((a) => a[0] === 100).map((a) => a[1]).join(", ");
-      const pts = scores[i] ? `${scores[i]} · ${tier(scores[i])}` : "0";
-      return `<tr><td>${p.q}</td><td>${said[i] ? esc(said[i]) : "No answer"}</td><td class="n">${pts}</td><td>${top}</td></tr>`;
+      const title = scores[i] ? ` title="${tier(scores[i])}"` : "";
+      return `<li><span class="n">${i + 1}</span><span>${scores[i] && said[i] ? esc(said[i]) : "No answer"}<small>Hajj: ${top}</small></span><b class="t${scores[i]}"${title}>${scores[i]}</b></li>`;
     }).join("");
-    show("result", false); show("move", false); show("end", true);
+    drawLog();
+    $("pts").parentElement.hidden = true; // the total lives in the summary now, so the screen stays symmetrical
+    document.querySelector(".mid").classList.add("final");
+    show("result", false); show("move", false); show("end", true); show("log", true);
     ended = true; place();
   }
   const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
