@@ -391,30 +391,48 @@
   $("skip").addEventListener("click", () => settle(null, "Skipped"));
   $("next").addEventListener("click", () => { if (++pos < P.length) ask(); else finish(); });
 
-  // Walk log: one column per prompt, a stem dropping as deep as the answer was rare. Misses stay as dashed rings at 0.
+  // Walk log: the cat's walk drawn sideways, left to right like the walk itself. One line, one segment per prompt,
+  // each as long as the points it earned and shaded by its tier, with an open point where each prompt ended.
   function drawLog() {
-    const L = 46, R = 404, T = 56, B = 286, col = (R - L) / P.length, y = (v) => T + (v / 100) * (B - T);
+    const L = 30, R = 450, Y = 138, x = (v) => L + (v / 700) * (R - L);
     const FILL = { 10: "#e6f7ec", 30: "#bfe9cf", 60: "#86d4a8", 85: "#1d5e40", 100: "#023d2b" };
-    const STEM = { 10: "#e6f7ec", 30: "#bfe9cf", 60: "#86d4a8", 85: "#4fa27a", 100: C.lamp };
+    const EDGE = { 10: "#ffffff", 30: "#e6f7ec", 60: "#bfe9cf", 85: "#86d4a8", 100: C.lamp };
     const HEAD = ["X.....X", "XX...XX", "XXXXXXX", "XKXXXKX", "XXXPXXX", ".XXXXX."];
-    const head = (cx, cy, fill, dark) => {
-      const u = 2.4, rows = (ink, dx, dy, eyes) => HEAD.map((r, j) => [...r].map((ch, k) => ch === "." ? "" :
-        `<rect x="${cx + (k - 3.5) * u + dx}" y="${cy + (j - 3) * u + dy}" width="${u + 0.05}" height="${u + 0.05}" fill="${eyes && ch === "K" ? (dark ? "#e6f7ec" : "#07291c") : eyes && ch === "P" ? "#f2a0a8" : ink}"/>`).join("")).join("");
-      const outline = dark ? [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => rows("#86d4a8", dx, dy, false)).join("") : "";
-      return outline + rows(fill, 0, 0, true);
-    };
-    const star = (cx, cy) => `<rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" fill="${FILL[100]}" stroke="${C.lamp}" stroke-width="1.5"/>` +
-      `<rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" fill="${FILL[100]}" stroke="${C.lamp}" stroke-width="1.5" transform="rotate(45 ${cx} ${cy})"/><rect x="${cx - 1.5}" y="${cy - 1.5}" width="3" height="3" fill="${C.lamp}"/>`;
-    let s = `<text x="${L - 30}" y="24" class="lt">WALK LOG</text><text x="${L + 92}" y="24" class="lt dim">RARER = DEEPER</text><line x1="${L + 250}" y1="20" x2="${R}" y2="20" class="grid"/>`;
-    [0, 25, 50, 75, 100].forEach((v) => { s += `<line x1="${L}" y1="${y(v)}" x2="${R}" y2="${y(v)}" class="grid"/><text x="${L - 8}" y="${y(v) + 3}" class="lab" text-anchor="end">${v}</text>`; });
-    TIERS.forEach(([v, name]) => { s += `<text x="${R + 8}" y="${y(v) + 3}" class="lab" style="fill:${STEM[v]}">${name.toUpperCase()}</text>`; });
+    const head = (cx, cy) => HEAD.map((r, j) => [...r].map((ch, k) => ch === "." ? "" :
+      `<rect x="${cx + (k - 3.5) * 2.4}" y="${cy + (j - 3) * 2.4}" width="2.45" height="2.45" fill="${ch === "K" ? "#1b1404" : ch === "P" ? "#f2a0a8" : "#e8913a"}"/>`).join("")).join("");
+    let s = `<text x="${L}" y="24" class="lt">WALK LOG</text><text x="${L + 132}" y="24" class="lt dim">FURTHER = RARER</text>`;
+    [[100, "GATE"], [400, "DOOR"], [700, "MIHRAB"]].forEach(([v, name]) => {
+      s += `<line x1="${x(v)}" y1="70" x2="${x(v)}" y2="${Y + 34}" class="grid"/><text x="${x(v)}" y="62" class="lab" text-anchor="${v === 700 ? "end" : "middle"}">${name}</text>`;
+    });
+    for (let v = 0; v <= 700; v += 100) s += `<text x="${x(v)}" y="${Y + 56}" class="lab" text-anchor="middle">${v}</text>`;
+    const end = total();
+    s += `<line x1="${x(end)}" y1="${Y}" x2="${R}" y2="${Y}" class="grid"/>`; // the part of the hall still ahead
+    let at = 0, t0 = 0.2;
+    const pts = [[0, null]];
     P.forEach((p, i) => {
-      const cx = L + col * (i + 0.5), v = scores[i], delay = `animation-delay:${0.2 + i * 0.14}s`;
-      s += `<text x="${cx}" y="${B + 26}" class="lab" text-anchor="middle">${i + 1}</text>`;
-      if (!v) { s += `<circle cx="${cx}" cy="${T}" r="7" class="miss" style="${delay}"/>`; return; }
-      const len = y(v) - T;
-      s += `<line x1="${cx}" y1="${T}" x2="${cx}" y2="${y(v)}" stroke="${STEM[v]}" stroke-width="1.5" class="stem" style="stroke-dasharray:${len};stroke-dashoffset:${len};${delay}"/>`;
-      s += `<g class="mark" style="animation-delay:${0.8 + i * 0.14}s">${v === 100 ? star(cx, y(v)) : head(cx, y(v), FILL[v], v === 85)}</g>`;
+      const v = scores[i];
+      if (v) {
+        s += `<rect x="${x(at)}" y="${Y - 7}" width="${x(at + v) - x(at)}" height="14" fill="${FILL[v]}" stroke="${EDGE[v]}" stroke-width="1" class="seg" style="animation-delay:${t0}s"/>`;
+        t0 += 0.25;
+      }
+      at += v;
+      pts.push([at, i]);
+    });
+    // open points with staggered prompt numbers, nudged apart when answers land close together
+    const lastX = [-99, -99];
+    pts.forEach(([v, i], k) => {
+      const cx = x(v), miss = i !== null && !scores[i];
+      s += `<circle cx="${cx}" cy="${Y}" r="${miss ? 9 : 6}" class="${miss ? "miss" : "pt"}" style="animation-delay:${0.2 + k * 0.25}s"/>`;
+      if (i === null) return;
+      const side = i % 2, near = cx - lastX[side] < 18;
+      const ly = side ? Y + 27 + (near ? 11 : 0) : Y - 17 - (near ? 11 : 0);
+      lastX[side] = cx;
+      s += `<text x="${cx}" y="${ly}" class="lab pn" text-anchor="middle" style="animation-delay:${0.2 + k * 0.25}s">${i + 1}</text>`;
+    });
+    s += `<g class="pt" style="animation-delay:${t0}s">${head(x(end), Y - 44)}</g>`;
+    TIERS.forEach(([v, name], k) => {
+      const lx = L + k * 90;
+      s += `<rect x="${lx}" y="${Y + 82}" width="14" height="9" fill="${FILL[v]}" stroke="${EDGE[v]}" stroke-width="1"/><text x="${lx + 19}" y="${Y + 90}" class="lab">${name.toUpperCase()}</text>`;
     });
     $("chart").innerHTML = s;
   }
