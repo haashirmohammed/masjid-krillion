@@ -1,17 +1,18 @@
 (function () {
   const P = window.PROMPTS, STAGE = window.STAGES, TIERS = window.TIERS, SECONDS = 25;
   const $ = (id) => document.getElementById(id);
-  const scene = $("scene"), world = $("world");
+  const scene = $("scene"), world = $("world"), panel = $("float");
 
   // ---- the route: every point is 4.4 world units, so each 100 points is one 440-unit section ----
-  const ZOOM = 2.6, X0 = 120, STEP = 4.4, GROUND = 262, CARPET = 254;
+  const X0 = 120, STEP = 4.4, GROUND = 262, CARPET = 254, TOP = -700, DEEP = 500;
   const GATE = X0 + 100 * STEP, FOUNT = X0 + 250 * STEP, PORT = X0 + 300 * STEP, DOOR = X0 + 400 * STEP, QIBLA = X0 + 700 * STEP + 62;
   const C = { stone: "#e6dfcc", lead: "#6f8fb5", tile: "#27b3ad", lamp: "#f2c14e", carpet: "#a8323a", hall: "#2a2350", street: "#070d24", paving: "#1b2a55" };
   const lamp = (x, y) => `<circle cx="${x}" cy="${y}" r="11" fill="${C.lamp}" opacity=".18"/><circle cx="${x}" cy="${y}" r="4" fill="${C.lamp}"/>`;
 
-  // outside: street, low stars, street lamps, palms
-  let w = `<rect x="-900" y="${GROUND}" width="5200" height="60" fill="${C.street}"/>`;
-  for (let i = 0; i < 22; i++) w += `<circle cx="${-320 + (i * 83) % 860}" cy="${166 + (i * 37) % 76}" r="${i % 3 ? 0.5 : 0.9}" fill="#f3efe4" opacity="${0.4 + (i % 3) * 0.2}"/>`;
+  // outside: a sky full of stars, a crescent moon, street lamps, palms
+  let w = `<rect x="-900" y="${GROUND}" width="5200" height="${DEEP}" fill="${C.street}"/>`;
+  for (let i = 0; i < 170; i++) w = `<circle cx="${-500 + (i * 197) % 4300}" cy="${-420 + (i * 131) % 660}" r="${i % 4 ? 0.6 : 1}" fill="#f3efe4" opacity="${0.35 + (i % 3) * 0.2}"/>` + w;
+  w = `<path d="M10 113 a22 22 0 1 0 22 22 a17.5 17.5 0 1 1 -22 -22z" fill="${C.lamp}"/>` + w;
   [170, 430].forEach((x) => { w += `<rect x="${x - 1.5}" y="198" width="3" height="64" fill="#3a4470"/>` + lamp(x, 194); });
   [20, 300].forEach((x) => {
     w += `<rect x="${x - 3}" y="192" width="6" height="70" fill="#4a3b2a"/>`;
@@ -21,12 +22,13 @@
   });
 
   // gate in the outer wall: the cat stands in the gateway at exactly 100 points
-  w += `<rect x="${GATE - 40}" y="140" width="100" height="${GROUND - 140}" fill="${C.stone}"/>` +
+  w += [0, 28, 56, 84].map((dx) => `<rect x="${GATE - 40 + dx}" y="98" width="16" height="12" fill="${C.stone}"/>`).join("") +
+       `<rect x="${GATE - 40}" y="110" width="100" height="${GROUND - 110}" fill="${C.stone}"/>` +
        `<path d="M${GATE - 25} ${GROUND} V214 a25 28 0 0 1 50 0 V${GROUND}z" fill="#101c40"/>` +
        `<path d="M${GATE - 25} 214 a25 28 0 0 1 50 0" fill="none" stroke="${C.tile}" stroke-width="3"/>`;
 
   // courtyard: paving, low back wall with niches, cypresses, ablution fountain
-  w += `<rect x="${GATE - 25}" y="${GROUND}" width="${DOOR - GATE + 25}" height="60" fill="${C.paving}"/>` +
+  w += `<rect x="${GATE - 25}" y="${GROUND}" width="${DOOR - GATE + 25}" height="${DEEP}" fill="${C.paving}"/>` +
        `<rect x="${GATE + 60}" y="206" width="${PORT - GATE - 60}" height="56" fill="#5d5a66" opacity=".45"/>`;
   for (let x = GATE + 110; x < PORT - 40; x += 100) w += `<path d="M${x} ${GROUND} V232 a14 16 0 0 1 28 0 V${GROUND}z" fill="#101c40" opacity=".55"/>`;
   [GATE + 260, FOUNT - 150, FOUNT + 150].forEach((x) => { w += `<rect x="${x - 2}" y="244" width="4" height="18" fill="#4a3b2a"/><ellipse cx="${x}" cy="212" rx="9" ry="42" fill="#1f5a45"/>`; });
@@ -43,15 +45,16 @@
   w += `<rect x="${PORT - 4}" y="190" width="${DOOR - PORT + 4}" height="10" fill="${C.stone}"/>`;
 
   // prayer hall: door wall, lamps, windows, carpet, rows of worshippers, mihrab on the qibla wall
-  w += `<rect x="${DOOR + 12}" y="140" width="${QIBLA - DOOR - 12}" height="${GROUND - 140}" fill="${C.hall}"/>` +
-       `<rect x="${DOOR}" y="140" width="12" height="74" fill="${C.stone}"/><rect x="${DOOR}" y="214" width="12" height="48" fill="${C.hall}"/>` +
+  w += `<rect x="${DOOR + 12}" y="${TOP}" width="${QIBLA - DOOR - 12}" height="${GROUND - TOP}" fill="${C.hall}"/>` +
+       `<rect x="${DOOR}" y="${TOP}" width="12" height="${214 - TOP}" fill="${C.stone}"/><rect x="${DOOR}" y="214" width="12" height="48" fill="${C.hall}"/>` +
        `<rect x="${DOOR}" y="212" width="12" height="3" fill="${C.tile}"/>` +
        `<rect x="${DOOR + 12}" y="198" width="${QIBLA - DOOR - 12}" height="3" fill="${C.tile}" opacity=".45"/>` +
        `<rect x="${DOOR}" y="${CARPET}" width="${QIBLA - DOOR}" height="8" fill="${C.carpet}"/>` +
-       `<rect x="${QIBLA}" y="140" width="30" height="${GROUND - 140}" fill="${C.stone}"/>`;
+       `<rect x="${QIBLA}" y="${TOP}" width="30" height="${GROUND - TOP}" fill="${C.stone}"/>`;
   for (let x = DOOR + 80; x < QIBLA - 40; x += 110) {
-    w += `<path d="M${x} 140 V186" stroke="#8c7a4a" stroke-width="1"/>` + lamp(x, 190) +
-         `<path d="M${x + 44} 244 V220 a11 13 0 0 1 22 0 V244z" fill="#1a1640" stroke="${C.lead}" stroke-width="1.5" opacity=".8"/>`;
+    w += `<path d="M${x} ${TOP} V186" stroke="#8c7a4a" stroke-width="1"/>` + lamp(x, 190) +
+         `<path d="M${x + 44} 244 V220 a11 13 0 0 1 22 0 V244z" fill="#1a1640" stroke="${C.lead}" stroke-width="1.5" opacity=".8"/>` +
+         `<path d="M${x + 35} 172 V118 a20 22 0 0 1 40 0 V172z" fill="#1a1640" stroke="${C.lead}" stroke-width="1.5" opacity=".7"/>`;
   }
   for (let x = DOOR + 500; x <= QIBLA - 100; x += 78) w += `<g transform="translate(${x},${CARPET})" fill="#7b72b3"><circle cy="-34" r="6"/><path d="M-7 0 V-21 q7 -8 14 0 V0z"/></g>`;
   w += `<path d="M${QIBLA} ${GROUND} V196 q-20 -16 -22 14 V${GROUND}z" fill="${C.tile}"/><path d="M${QIBLA} ${GROUND} V208 q-12 -8 -13 8 V${GROUND}z" fill="#0f7f86"/>`;
@@ -80,7 +83,7 @@
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ---- tiers, named after the five pillars ----
-  $("tiers").innerHTML = TIERS.map((t) => `<dt>${t[0]}</dt><dd><b>${t[1]}</b>${t[2]}</dd>`).join("");
+  $("tiers").innerHTML = TIERS.map((t) => `<li title="${t[2]}"><b>${t[1]}</b>${t[0]}</li>`).join("");
   const tier = (pts) => TIERS.find((t) => t[0] === pts)[1];
   $("track").innerHTML = STAGE.map(() => "<li></li>").join("");
 
@@ -120,11 +123,13 @@
 
   // Move the cat to where the score puts it and keep the camera on it. snap = no walking.
   function place(snap) {
-    const x = X0 + total() * STEP, gy = x > DOOR + 6 ? CARPET : GROUND, k = scene.clientHeight / 300 * ZOOM;
+    const x = X0 + total() * STEP, gy = x > DOOR + 6 ? CARPET : GROUND, W = scene.clientWidth, H = scene.clientHeight;
+    const s = Math.max(2.4, Math.min(4.2, H / 200, W / 150)), floor = H * 0.86;
     const d = snap ? 0 : Math.abs(x - lastX), secs = d ? 0.9 + d / 400 : 0;
     lastX = x;
+    panel.style.maxHeight = Math.max(220, floor - 30 * s - 44) + "px";
     world.style.transitionDuration = me.style.transitionDuration = secs + "s";
-    world.style.transform = `translate(${scene.clientWidth / 2 - x * k}px,${scene.clientHeight * 0.86 - gy * k}px) scale(${ZOOM})`;
+    world.style.transform = `translate(${W / 2 - x * s}px,${floor - gy * s}px) scale(${s})`;
     me.style.transform = `translate(${x}px,${gy}px)`;
     const frame = (f) => { legs[0].style.display = f ? "none" : ""; legs[1].style.display = f ? "" : "none"; };
     clearInterval(walk); frame(0);
