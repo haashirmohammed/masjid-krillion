@@ -1,7 +1,7 @@
 (function () {
   const P = window.PROMPTS, STAGE = window.STAGES, TIERS = window.TIERS, SECONDS = 25;
   const $ = (id) => document.getElementById(id);
-  const scene = $("scene"), world = $("world"), panel = $("float");
+  const scene = $("scene"), world = $("world");
 
   // ---- the route: every point is 4.4 world units, so each 100 points is one 440-unit section ----
   const X0 = 120, STEP = 4.4, GROUND = 262, CARPET = 254, TOP = -700, DEEP = 500;
@@ -85,7 +85,6 @@
   // ---- tiers, named after the five pillars ----
   $("tiers").innerHTML = TIERS.map((t) => `<li title="${t[2]}"><b>${t[1]}</b>${t[0]}</li>`).join("");
   const tier = (pts) => TIERS.find((t) => t[0] === pts)[1];
-  $("track").innerHTML = STAGE.map(() => "<li></li>").join("");
 
   // ---- answer matching ----
   const norm = (t) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/['’`ʿʾ]/g, "").replace(/-/g, " ")
@@ -117,17 +116,19 @@
   }
 
   // ---- state ----
-  let scores, said, order, pos, timer, left, revealed, lastX = 0, walk;
+  let scores = P.map(() => 0), said = P.map(() => ""), pos = 0, timer, left, lastX = 0, walk, busy = false, ended = false;
   const total = () => scores.reduce((x, y) => x + y, 0);
   const stage = () => Math.min(7, Math.floor(total() / 100));
+  const show = (id, on) => { $(id).hidden = !on; };
 
-  // Move the cat to where the score puts it and keep the camera on it. snap = no walking.
+  // Move the cat to where the score puts it and keep the camera on it. snap = no animation.
+  // The floor sits above the bottom box; once the game ends that box is gone, so the floor drops.
   function place(snap) {
     const x = X0 + total() * STEP, gy = x > DOOR + 6 ? CARPET : GROUND, W = scene.clientWidth, H = scene.clientHeight;
-    const s = Math.max(2.4, Math.min(4.2, H / 200, W / 150)), floor = H * 0.86;
-    const d = snap ? 0 : Math.abs(x - lastX), secs = d ? 0.9 + d / 400 : 0;
+    const s = Math.max(2.4, Math.min(4.2, H / 200, W / 150)), floor = H - (ended ? 110 : W < 600 ? 330 : 280);
+    const d = snap ? 0 : Math.abs(x - lastX), secs = snap ? 0 : d ? 0.9 + d / 400 : 0.6;
     lastX = x;
-    panel.style.maxHeight = Math.max(220, floor - 30 * s - 44) + "px";
+    document.documentElement.style.setProperty("--cat-top", Math.round(floor - 30 * s) + "px");
     world.style.transitionDuration = me.style.transitionDuration = secs + "s";
     world.style.transform = `translate(${W / 2 - x * s}px,${floor - gy * s}px) scale(${s})`;
     me.style.transform = `translate(${x}px,${gy}px)`;
@@ -137,37 +138,42 @@
       let f = 0, n = Math.round(secs * 1000 / 140);
       walk = setInterval(() => { f ^= 1; frame(f); if (!--n) { clearInterval(walk); frame(0); } }, 140);
     }
-    $("stage").textContent = STAGE[stage()];
     $("pts").textContent = total();
-    [...$("track").children].forEach((li, i) => li.classList.toggle("on", i <= stage()));
   }
-  function show(id) { ["start", "play", "end"].forEach((x) => ($(x).hidden = x !== id)); }
 
-  function reset() { scores = P.map(() => 0); said = P.map(() => ""); revealed = false; place(true); }
-  function round(list) { order = list; pos = 0; show("play"); ask(); }
-
+  // ---- one prompt: ask, lock the answer, wind the clock down, then show the result mid-screen ----
   function ask() {
-    const p = P[order[pos]];
-    $("tag").textContent = `${p.tag} · ${pos + 1} of ${order.length}`;
-    $("q").textContent = p.q; $("hint").textContent = p.hint;
-    $("fb").textContent = ""; $("fb").className = "";
-    $("form").hidden = false; $("next").hidden = true;
-    $("ans").value = ""; $("ans").focus();
-    left = SECONDS * 10; tick();
-    clearInterval(timer); timer = setInterval(() => { left--; tick(); if (left <= 0) settle(null, "Time is up. No points for this one."); }, 100);
+    const p = P[pos];
+    busy = false;
+    $("tag").textContent = `${p.tag} · ${pos + 1} of ${P.length}`;
+    $("q").textContent = p.q; $("hint").textContent = p.hint; $("fb").textContent = "";
+    $("ans").value = ""; $("ans").disabled = $("submit").disabled = $("skip").disabled = false;
+    show("result", false); show("move", false); show("play", true);
+    $("ans").focus();
+    left = SECONDS * 10; $("time").style.transition = "none"; tick();
+    clearInterval(timer); timer = setInterval(() => { left--; tick(); if (left <= 0) settle(null, "Time is up"); }, 100);
   }
-  function tick() { const b = $("time"); b.style.width = Math.max(0, left / (SECONDS * 10) * 100) + "%"; b.classList.toggle("low", left < 70); }
+  function tick() { const b = $("time"); b.style.width = Math.max(0, left / (SECONDS * 10) * 100) + "%"; b.classList.toggle("low-time", left < 70); }
 
-  function settle(hit, msg) {
-    clearInterval(timer);
-    const i = order[pos];
-    scores[i] = hit ? hit[0] : 0;
-    if (hit) said[i] = hit[1];
-    $("fb").className = hit ? "ok" : "no";
-    $("fb").textContent = hit ? `${tier(hit[0])}: ${hit[1]}, +${hit[0]} points.` : msg;
-    $("form").hidden = true;
-    $("next").hidden = false;
-    $("next").textContent = pos + 1 < order.length ? "Next prompt" : "See how far you got";
+  function settle(hit, miss) {
+    if (busy) return;
+    busy = true; clearInterval(timer);
+    $("ans").disabled = $("submit").disabled = $("skip").disabled = true;
+    scores[pos] = hit ? hit[0] : 0;
+    if (hit) said[pos] = hit[1];
+    const wait = left > 0 && !still ? 700 : 0;
+    $("time").style.transition = `width ${wait}ms linear`; $("time").style.width = "0%";
+    setTimeout(() => reveal(hit, miss), wait);
+  }
+  function reveal(hit, miss) {
+    $("r-tier").textContent = hit ? tier(hit[0]) : miss;
+    $("r-ans").textContent = hit ? hit[1] : "No answer";
+    $("r-pts").textContent = "+" + scores[pos];
+    $("r-place").textContent = STAGE[stage()];
+    $("result").classList.toggle("miss", !hit);
+    $("m-count").textContent = `${pos + 1} of ${P.length} answered`;
+    $("next").textContent = pos + 1 < P.length ? "Next prompt" : "See how far you got";
+    show("play", false); show("result", true); show("move", true);
     $("next").focus();
     place();
   }
@@ -175,38 +181,33 @@
   $("form").addEventListener("submit", (e) => {
     e.preventDefault();
     const text = $("ans").value.trim();
-    if (!text) return;
-    const hit = match(P[order[pos]], text);
+    if (!text || busy) return;
+    const hit = match(P[pos], text);
     if (hit) return settle(hit);
-    said[order[pos]] = text;
-    $("fb").className = "no";
+    said[pos] = text;
     $("fb").textContent = `"${text}" isn't on the list. Try another while the clock runs.`;
     $("ans").select();
   });
-  $("skip").addEventListener("click", () => settle(null, "Skipped. No points for this one."));
-  $("next").addEventListener("click", () => { if (++pos < order.length) ask(); else finish(); });
+  $("skip").addEventListener("click", () => settle(null, "Skipped"));
+  $("next").addEventListener("click", () => { if (++pos < P.length) ask(); else finish(); });
 
+  // One attempt: the end screen has no way back in.
   function finish() {
-    const t = total(), missed = P.map((_, i) => i).filter((i) => !scores[i]);
-    if (!missed.length) revealed = true;
+    const t = total();
     $("verdict").textContent = t === 700 ? "Front row. A perfect 700." : `You made it: ${STAGE[stage()].toLowerCase()}.`;
     $("summary").textContent = t === 700 ? "Seven Hajj answers out of seven. Take your place by the mihrab."
-      : `${t} of 700 points. ${700 - t} more would put you in the front row.`;
+      : `${t} of 700 points. ${700 - t} more would have put you in the front row.`;
     $("rows").innerHTML = P.map((p, i) => {
       const top = p.a.filter((a) => a[0] === 100).map((a) => a[1]).join(", ");
-      const cell = scores[i] || revealed ? top : "Retry it to reveal";
       const pts = scores[i] ? `${scores[i]} · ${tier(scores[i])}` : "0";
-      return `<tr><td>${p.q}</td><td>${said[i] ? esc(said[i]) : "No answer"}</td><td class="n">${pts}</td><td>${cell}</td></tr>`;
+      return `<tr><td>${p.q}</td><td>${said[i] ? esc(said[i]) : "No answer"}</td><td class="n">${pts}</td><td>${top}</td></tr>`;
     }).join("");
-    $("retry").hidden = !missed.length;
-    $("retry").textContent = `Retry the ${missed.length} you missed`;
-    $("retry").onclick = () => { revealed = true; round(missed); };
-    show("end");
+    show("result", false); show("move", false); show("end", true);
+    ended = true; place();
   }
   const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  $("begin").addEventListener("click", () => round(P.map((_, i) => i)));
-  $("again").addEventListener("click", () => { reset(); round(P.map((_, i) => i)); });
+  $("begin").addEventListener("click", () => { show("start", false); ask(); });
   window.addEventListener("resize", () => place(true));
-  reset();
+  place(true);
 })();
