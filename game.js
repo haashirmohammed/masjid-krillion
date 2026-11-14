@@ -181,11 +181,16 @@
   $("tiers").innerHTML = TIERS.map((t) => `<li title="${t[2]}"><b>${t[1]}</b>${t[0]}</li>`).join("");
   const tier = (pts) => TIERS.find((t) => t[0] === pts)[1];
 
-  // ---- answer matching ----
-  const norm = (t) => t.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/['’`ʿʾ]/g, "").replace(/-/g, " ")
-    .replace(/\bbin\b/g, "ibn")
-    .replace(/\b(the|al|an|as|at|ar|ash|az|ad|imam|sultan|battle|of|ghazwa|ghazwat|surah|surat|sahih|sunan|jami|hazrat|prophet|banu|bani|[ivx]+)\b/g, " ")
-    .replace(/[^a-z]/g, "");
+  // ---- answer matching: forgiving of spelling ----
+  // Both the typed answer and every accepted name are folded to a rough sound skeleton, so common transliteration
+  // variants match (Tirmidhi/Tirmizi, Uthman/Osman, Aisha/Ayesha). Small typos are then fixed by edit distance,
+  // and a partial name is accepted when it points to only one answer.
+  const STOP = /\b(the|al|an|as|at|ar|ash|az|ad|el|a|of|and|imam|sultan|battle|ghazwa|ghazwat|surah|surat|sahih|sunan|jami|hazrat|sayyiduna|prophet|banu|bani|[ivx]+)\b/g;
+  const skel = (w) => w.replace(/sh/g, "x").replace(/kh/g, "k").replace(/gh/g, "g").replace(/ph/g, "f").replace(/th|dh|z/g, "s")
+    .replace(/[qc]/g, "k").replace(/o/g, "u").replace(/e/g, "i").replace(/w/g, "u").replace(/y/g, "i").replace(/(.)\1+/g, "$1").replace(/(.)h$/, "$1");
+  const norm = (t) => t.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/['’`ʿʾ]/g, "").replace(/[-_.,]/g, " ")
+    .replace(/\bbin\b/g, "ibn").replace(STOP, " ").split(/[^a-z]+/).filter(Boolean).map(skel).join("");
+  P.forEach((p) => p.a.forEach((a) => { a.keys = [...new Set([a[1], ...a.slice(2)].map(norm).filter(Boolean))]; }));
   function lev(a, b) {
     let row = Array.from({ length: b.length + 1 }, (_, j) => j);
     for (let i = 1; i <= a.length; i++) {
@@ -198,17 +203,26 @@
     }
     return row[b.length];
   }
+  // Returns { hit, fixed } for one clear answer, { options } when a partial name fits several, or {} for no match.
   function match(prompt, text) {
     const t = norm(text);
-    if (!t) return null;
-    for (const a of prompt.a) if (a.slice(2).some((x) => norm(x) === t)) return a;
-    if (t.length < 4) return null;
-    for (const a of prompt.a) for (const x of a.slice(2)) {
-      const n = norm(x);
-      if (n.length >= 5 && lev(n, t) <= (n.length >= 9 ? 2 : 1)) return a;
+    if (!t) return {};
+    const tol = t.length <= 3 ? 0 : t.length <= 5 ? 1 : t.length <= 9 ? 2 : 3;
+    let best = Infinity, hits = [];
+    for (const a of prompt.a) {
+      let s = Infinity;
+      for (const k of a.keys) {
+        if (k === t) { s = 0; break; }
+        if (k[0] === t[0] || tol > 1) { const d = lev(k, t); if (d <= tol) s = Math.min(s, d); }
+        if ((t.length >= 5 && k.includes(t)) || (k.length >= 5 && t.includes(k))) s = Math.min(s, 1.5);
+      }
+      if (s < best) { best = s; hits = [a]; } else if (s === best && s < Infinity) hits.push(a);
     }
-    return null;
+    if (!hits.length) return {};
+    if (hits.length > 1) return { options: hits };
+    return { hit: hits[0], fixed: best > 0 };
   }
+  window.__match = match; // exposed for testing
 
   // ---- effects: pixel particles on a layer above everything ----
   function particle(x, y, dx, dy, color, size, ms, delay = 0) {
@@ -236,10 +250,12 @@
   }
 
   // ---- state ----
-  let scores = P.map(() => 0), said = P.map(() => ""), pos = 0, timer, left, lastX = 0, walk, busy = false, ended = false, sc = 3, fl = 400;
+  let typed = "", scores = P.map(() => 0), said = P.map(() => ""), pos = 0, timer, left, lastX = 0, walk, busy = false, ended = false, sc = 3, fl = 400;
   const total = () => scores.reduce((x, y) => x + y, 0);
   const stage = () => Math.min(7, Math.floor(total() / 100));
   const show = (id, on) => { $(id).hidden = !on; };
+  const fix = document.createElement("p"); // "Autocorrected from ..." line in the result box
+  fix.className = "muted"; fix.hidden = true; $("r-ans").after(fix);
 
   // Cartoon wind-up before a rare answer launches the cat: legs blur into a wheel, the cat leans back, dust flies.
   function windup(lvl, ms) {
@@ -315,6 +331,7 @@
     const lvl = hit ? hit[0] : 0, box = $("result");
     $("r-tier").textContent = hit ? tier(lvl) : miss;
     $("r-ans").textContent = hit ? hit[1] : "No answer";
+    fix.textContent = hit && typed ? `Autocorrected from "${typed}"` : ""; fix.hidden = !fix.textContent;
     $("r-pts").textContent = "+" + lvl;
     $("r-place").textContent = "";
     box.className = `box result t${lvl}` + (hit ? "" : " miss");
@@ -337,10 +354,15 @@
     e.preventDefault();
     const text = $("ans").value.trim();
     if (!text || busy) return;
-    const hit = match(P[pos], text);
-    if (hit) return settle(hit);
-    said[pos] = text;
-    $("fb").textContent = `"${text}" isn't on the list. Try another while the clock runs.`;
+    const m = match(P[pos], text);
+    if (m.hit) { typed = m.fixed ? text : ""; return settle(m.hit); }
+    if (m.options) {
+      const names = m.options.slice(0, 3).map((a) => a[1]);
+      $("fb").textContent = `Which one: ${names.join(", ")}${m.options.length > 3 ? " or another" : ""}? Type a little more.`;
+    } else {
+      said[pos] = text;
+      $("fb").textContent = `"${text}" isn't on the list. Try another while the clock runs.`;
+    }
     $("ans").select();
   });
   $("skip").addEventListener("click", () => settle(null, "Skipped"));
