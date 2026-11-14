@@ -191,6 +191,18 @@
   const norm = (t) => t.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/['’`ʿʾ]/g, "").replace(/[-_.,]/g, " ")
     .replace(/\bbin\b/g, "ibn").replace(STOP, " ").split(/[^a-z]+/).filter(Boolean).map(skel).join("");
   P.forEach((p) => p.a.forEach((a) => { a.keys = [...new Set([a[1], ...a.slice(2)].map(norm).filter(Boolean))]; }));
+  // Prompts marked numbered (the sultans) share names, so the regnal number picks which one: "Murad IV", "murad 4", "4th murad".
+  const ROMAN = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6 }, ORD = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6 };
+  P.forEach((p) => { if (p.numbered) p.a.forEach((a) => { const m = a[1].match(/^(\S+)(?: ([IVX]+)\b)?/); a.base = m[1]; a.num = m[2] ? ROMAN[m[2].toLowerCase()] : 1; }); });
+  function regnal(text) {
+    for (const w of text.toLowerCase().split(/[^a-z0-9]+/)) {
+      if (ROMAN[w]) return ROMAN[w];
+      if (ORD[w]) return ORD[w];
+      const d = w.match(/^(\d+)(st|nd|rd|th)?$/);
+      if (d) return +d[1];
+    }
+    return 0;
+  }
   function lev(a, b) {
     let row = Array.from({ length: b.length + 1 }, (_, j) => j);
     for (let i = 1; i <= a.length; i++) {
@@ -205,7 +217,7 @@
   }
   // Returns { hit, fixed } for one clear answer, { options } when a partial name fits several, or {} for no match.
   function match(prompt, text) {
-    const t = norm(text);
+    const t = norm(prompt.numbered ? text.replace(/\b(\d+(st|nd|rd|th)?|first|second|third|fourth|fifth|sixth)\b/gi, " ") : text);
     if (!t) return {};
     const tol = t.length <= 3 ? 0 : t.length <= 5 ? 1 : t.length <= 9 ? 2 : 3;
     let best = Infinity, hits = [];
@@ -219,6 +231,14 @@
       if (s < best) { best = s; hits = [a]; } else if (s === best && s < Infinity) hits.push(a);
     }
     if (!hits.length) return {};
+    if (prompt.numbered) {
+      const n = regnal(text);
+      if (n) { hits = hits.filter((a) => a.num === n); if (!hits.length) return {}; }
+      else if (hits.length > 1 && new Set(hits.map((a) => a.base)).size === 1) {
+        // A bare shared name ("Mehmed") counts as the best-known one: the most common tier.
+        return { hit: hits.reduce((x, y) => (y[0] < x[0] ? y : x)), fixed: best > 0, assumed: true };
+      }
+    }
     if (hits.length > 1) return { options: hits };
     return { hit: hits[0], fixed: best > 0 };
   }
@@ -250,7 +270,7 @@
   }
 
   // ---- state ----
-  let typed = "", scores = P.map(() => 0), said = P.map(() => ""), pos = 0, timer, left, lastX = 0, walk, busy = false, ended = false, sc = 3, fl = 400;
+  let typed = "", assumed = "", scores = P.map(() => 0), said = P.map(() => ""), pos = 0, timer, left, lastX = 0, walk, busy = false, ended = false, sc = 3, fl = 400;
   const total = () => scores.reduce((x, y) => x + y, 0);
   const stage = () => Math.min(7, Math.floor(total() / 100));
   const show = (id, on) => { $(id).hidden = !on; };
@@ -332,7 +352,8 @@
     const lvl = hit ? hit[0] : 0, box = $("result");
     $("r-tier").textContent = hit ? tier(lvl) : miss;
     $("r-ans").textContent = hit ? hit[1] : "No answer";
-    fix.textContent = hit && typed ? `Autocorrected from "${typed}"` : ""; fix.hidden = !fix.textContent;
+    fix.textContent = !hit ? "" : assumed ? `No number given, so this counts as the best-known ${assumed}. Add a number for a rarer one.` : typed ? `Autocorrected from "${typed}"` : "";
+    fix.hidden = !fix.textContent;
     $("r-pts").textContent = "+" + lvl;
     $("r-place").textContent = "";
     box.className = `box result t${lvl}` + (hit ? "" : " miss");
@@ -357,7 +378,7 @@
     const text = $("ans").value.trim();
     if (!text || busy) return;
     const m = match(P[pos], text);
-    if (m.hit) { typed = m.fixed ? text : ""; return settle(m.hit); }
+    if (m.hit) { typed = m.fixed ? text : ""; assumed = m.assumed ? m.hit.base : ""; return settle(m.hit); }
     if (m.options) {
       const names = m.options.slice(0, 3).map((a) => a[1]);
       $("fb").textContent = `Which one: ${names.join(", ")}${m.options.length > 3 ? " or another" : ""}? Type a little more.`;
