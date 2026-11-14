@@ -87,6 +87,14 @@ window.PROMPTS = [
     [100, "Herbs", "herbs", "herb"] ] }
 ];
 window.STAGES = [
-  ["Outside the gate", 90], ["Through the gate", 222], ["By the ablution fountain", 370], ["Under the portico", 720],
-  ["At the door", 806], ["In the back rows", 935], ["In the middle rows", 1170], ["In the front row, by the mihrab", 1462]
+  "Outside the gate", "Through the gate", "By the ablution fountain", "Under the portico",
+  "Inside the door", "In the back rows", "In the middle rows", "In the front row, by the mihrab"
+];
+// Tiers, lowest to highest: [points, name, what it means]. Named after the five pillars.
+window.TIERS = [
+  [10, "Shahada", "The answer everyone gives"],
+  [30, "Salah", "Well known"],
+  [60, "Zakat", "Uncommon"],
+  [85, "Sawm", "Rare"],
+  [100, "Hajj", "One in a krillion"]
 ];

@@ -17,8 +17,8 @@
 }
 html,body{background:var(--night)}
 body{color:var(--ink);font:16px/1.5 var(--body)}
-.scene{height:clamp(190px,34vw,300px);overflow:hidden;background:linear-gradient(#0b1736 0%,#1a2152 55%,#3b2a5e 100%);border-bottom:3px solid var(--tile)}
-#world{height:100%;width:auto;aspect-ratio:1600/300;display:block;max-width:none;transition:transform 1.1s ease}
+.scene{width:min(720px,calc(100% - 32px));margin:16px auto 0;height:clamp(190px,34vw,300px);overflow:hidden;background:linear-gradient(#0b1736 0%,#1a2152 55%,#3b2a5e 100%);border:1px solid var(--line);border-radius:14px}
+#world{height:100%;width:auto;aspect-ratio:3400/300;display:block;max-width:none;overflow:visible;transform-origin:0 0;transition:transform 1.1s ease}
 #me{transition:transform 1.1s ease}
 .wrap{max-width:720px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
 .hud{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
@@ -49,6 +49,7 @@ button:hover{filter:brightness(1.1)}
 .tiers{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:15px}
 .tiers dt{color:var(--lamp);font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
 .tiers dd{margin:0;color:var(--muted)}
+.tiers dd b{color:var(--ink);font-weight:600;margin-right:8px}
 .res{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
@@ -61,48 +62,7 @@ td.n{font-variant-numeric:tabular-nums;color:var(--lamp);font-weight:700;white-s
 <body>
 
 <div class="scene" id="scene" aria-hidden="true">
-<svg id="world" viewBox="0 0 1600 300" xmlns="http://www.w3.org/2000/svg">
-  <g id="stars" fill="#f3efe4"></g>
-  <circle cx="150" cy="58" r="22" fill="#f2c14e"/><circle cx="160" cy="52" r="20" fill="#0c1838"/>
-  <!-- minarets -->
-  <g fill="#cfc7b2">
-    <rect x="612" y="44" width="14" height="218"/><rect x="606" y="108" width="26" height="7"/><path d="M610 44 L619 6 L628 44z" fill="#6f8fb5"/>
-    <rect x="1540" y="44" width="14" height="218"/><rect x="1534" y="108" width="26" height="7"/><path d="M1538 44 L1547 6 L1556 44z" fill="#6f8fb5"/>
-  </g>
-  <!-- ground and courtyard paving -->
-  <rect x="0" y="262" width="1600" height="38" fill="#070d24"/>
-  <rect x="250" y="262" width="560" height="38" fill="#1b2a55"/>
-  <!-- outer wall and gate -->
-  <rect x="172" y="176" width="86" height="86" fill="#e6dfcc"/>
-  <path d="M172 176 h86 v-8 h-10 v-8 h-12 v8 h-12 v-8 h-12 v8 h-12 v-8 h-12 v8 h-16z" fill="#e6dfcc"/>
-  <path d="M195 262 V216 a20 24 0 0 1 40 0 V262z" fill="#101c40"/>
-  <path d="M195 216 a20 24 0 0 1 40 0" fill="none" stroke="#27b3ad" stroke-width="3"/>
-  <rect x="258" y="212" width="382" height="50" fill="#5d5a66" opacity=".45"/>
-  <!-- ablution fountain -->
-  <path d="M404 228 q36 -38 72 0z" fill="#6f8fb5"/><rect x="439" y="186" width="2" height="12" fill="#f2c14e"/>
-  <rect x="412" y="228" width="56" height="34" fill="#e6dfcc"/><rect x="424" y="238" width="32" height="24" fill="#27b3ad" opacity=".7"/>
-  <!-- portico -->
-  <g id="portico"></g>
-  <!-- prayer hall: shell, interior, domes -->
-  <path d="M800 150 A80 58 0 0 1 960 150z M1360 150 A80 58 0 0 1 1520 150z" fill="#6f8fb5"/>
-  <path d="M950 150 A210 120 0 0 1 1370 150z" fill="#6f8fb5"/>
-  <rect x="1158" y="12" width="4" height="20" fill="#f2c14e"/><circle cx="1160" cy="10" r="4" fill="#f2c14e"/>
-  <rect x="800" y="150" width="720" height="112" fill="#e6dfcc"/>
-  <path d="M812 262 V158 H960 A200 108 0 0 1 1360 158 H1508 V262z" fill="#2a2350"/>
-  <rect x="800" y="214" width="12" height="48" fill="#2a2350"/>
-  <path d="M800 214 h12" stroke="#27b3ad" stroke-width="3"/>
-  <rect x="812" y="254" width="696" height="8" fill="#a8323a"/>
-  <g id="hall"></g>
-  <!-- mihrab on the qibla wall -->
-  <path d="M1508 262 V196 q-20 -16 -22 14 V262z" fill="#27b3ad"/>
-  <path d="M1508 262 V208 q-12 -8 -13 8 V262z" fill="#0f7f86"/>
-  <!-- you -->
-  <g id="me" style="transform:translate(90px,262px)">
-    <circle cy="-22" r="26" fill="#f2c14e" opacity=".16"/>
-    <circle cy="-35" r="6.5" fill="#fff8e6" stroke="#0b1736" stroke-width="1.5"/>
-    <path d="M-8 0 V-22 q8 -9 16 0 V0z" fill="#fff8e6" stroke="#0b1736" stroke-width="1.5"/>
-  </g>
-</svg>
+<svg id="world" viewBox="0 0 3400 300" xmlns="http://www.w3.org/2000/svg"></svg>
 </div>
 
 <main class="wrap">
@@ -115,14 +75,8 @@ td.n{font-variant-numeric:tabular-nums;color:var(--lamp);font-weight:700;white-s
   <section class="card" id="start">
     <h2>Seven prompts. The rarer your answer, the deeper you walk.</h2>
     <p>Each prompt has many right answers. Type one. The answer everyone thinks of barely moves you. The one few people remember carries you toward the first row.</p>
-    <dl class="tiers">
-      <dt>10</dt><dd>The first answer everyone gives</dd>
-      <dt>30</dt><dd>Well known</dd>
-      <dt>60</dt><dd>Uncommon</dd>
-      <dt>85</dt><dd>Rare</dd>
-      <dt>100</dt><dd>Hidden gem</dd>
-    </dl>
-    <p class="muted">25 seconds per prompt. A rejected answer costs nothing, so try again while the clock runs. Every 100 points takes you one stage in. Only a perfect 700 reaches the front row by the mihrab.</p>
+    <dl class="tiers" id="tiers"></dl>
+    <p class="muted">25 seconds per prompt. A rejected answer costs nothing, so try again while the clock runs. Every point moves the cat: a Shahada answer is a few steps, a Hajj answer crosses a whole section. Only a perfect 700 reaches the front row by the mihrab.</p>
     <div class="row"><button class="go" id="begin">Walk in</button></div>
   </section>
 
@@ -143,11 +97,11 @@ td.n{font-variant-numeric:tabular-nums;color:var(--lamp);font-weight:700;white-s
   <section class="card" id="end" hidden>
     <h2 id="verdict"></h2>
     <p id="summary"></p>
-    <div class="res"><table><thead><tr><th>Prompt</th><th>You said</th><th>Pts</th><th>Hidden gems</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="res"><table><thead><tr><th>Prompt</th><th>You said</th><th>Pts</th><th>Hajj answers</th></tr></thead><tbody id="rows"></tbody></table></div>
     <div class="row"><button class="go" id="retry" hidden></button><button id="again">Play again</button></div>
   </section>
 
-  <p class="foot">Rarity tiers are editorial estimates of how often each answer comes to mind, not live player data. The masjid is drawn in the Ottoman (Osmani) style: a central dome on half domes, pencil minarets, a courtyard with an ablution fountain.</p>
+  <p class="foot">Rarity tiers are editorial estimates of how often each answer comes to mind, not live player data. The masjid follows an Ottoman (Osmani) plan: a gate, a courtyard with an ablution fountain, an arcaded portico and a carpeted prayer hall ending at the mihrab.</p>
 </main>
 <script src="data.js"></script>
 <script src="game.js"></script>
